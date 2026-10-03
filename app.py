@@ -1,17 +1,17 @@
 import streamlit as st
 
-# Cấu hình trang Streamlit
+# Cấu hình giao diện trang Streamlit
 st.set_page_config(
     page_title="Ứng dụng Tính Lãi Tiết Kiệm", page_icon="💰", layout="centered"
 )
 
 st.title("💰 Ứng dụng Tính Lãi Tiết Kiệm Ngân Hàng")
 st.write(
-    "Nhập thông tin khoản tiết kiệm của bạn ở thanh bên trái để xem kết quả chi"
-    " tiết."
+    "Nhập thông tin khoản tiết kiệm của bạn ở thanh bên (sidebar) để xem kết"
+    " quả chi tiết."
 )
 
-# Sidebar chứa các ô nhập liệu
+# Sidebar chứa các ô nhập liệu cho người dùng
 st.sidebar.header("⚙️ Thông tin khoản gửi")
 
 principal = st.sidebar.number_input(
@@ -36,77 +36,97 @@ payout_method = st.sidebar.selectbox(
     "Hình thức nhận lãi", ("Cuối kỳ", "Hàng tháng", "Hàng quý")
 )
 
-# Xử lý tính toán
-r_annual = annual_rate / 100.0
-t_years = term_months / 12.0
+# Kiểm tra logic kỳ hạn và hình thức nhận lãi
+valid_calculation = True
+if payout_method == "Hàng quý" and term_months < 3:
+  st.sidebar.error(
+      "⚠️ Kỳ hạn gửi phải từ 3 tháng trở lên nếu chọn nhận lãi hàng quý!"
+  )
+  valid_calculation = False
+elif payout_method == "Hàng tháng" and term_months < 1:
+  st.sidebar.error("⚠️ Kỳ hạn gửi phải từ 1 tháng trở lên!")
+  valid_calculation = False
 
-total_interest = 0.0
-total_amount = 0.0
-periodic_interest = 0.0
+# Xử lý tính toán khi dữ liệu hợp lệ
+if valid_calculation:
+  r_annual = annual_rate / 100.0
+  t_years = term_months / 12.0
 
-if interest_type == "Lãi đơn":
-  # Công thức lãi đơn: I = P * r * t
-  total_interest = principal * r_annual * t_years
-  total_amount = principal + total_interest
+  total_interest = 0.0
+  total_amount = 0.0
+  periodic_interest = 0.0
 
-  if payout_method == "Hàng tháng" and term_months > 0:
-    periodic_interest = total_interest / term_months
-  elif payout_method == "Hàng quý":
-    num_quarters = term_months / 3.0
-    periodic_interest = total_interest / num_quarters if num_quarters > 0 else 0
-  else:
-    periodic_interest = total_interest
+  if interest_type == "Lãi đơn":
+    # Công thức lãi đơn tổng cộng: I = P * r * (tháng / 12)
+    total_interest = principal * r_annual * t_years
+    total_amount = principal + total_interest
 
-else:  # Lãi kép
-  if payout_method == "Hàng tháng":
-    r_period = r_annual / 12.0
-    n_periods = term_months
-    total_amount = principal * ((1 + r_period) ** n_periods)
-    total_interest = total_amount - principal
-    periodic_interest = total_interest / n_periods if n_periods > 0 else 0
-  elif payout_method == "Hàng quý":
-    r_period = r_annual / 4.0
-    n_periods = term_months / 3.0
-    total_amount = principal * ((1 + r_period) ** n_periods)
-    total_interest = total_amount - principal
-    periodic_interest = total_interest / n_periods if n_periods > 0 else 0
-  else:  # Cuối kỳ (nhập gốc định kỳ theo tháng)
-    r_period = r_annual / 12.0
-    n_periods = term_months
-    total_amount = principal * ((1 + r_period) ** n_periods)
-    total_interest = total_amount - principal
-    periodic_interest = total_interest
+    # Tính tiền lãi định kỳ theo lựa chọn
+    if payout_method == "Hàng tháng":
+      periodic_interest = total_interest / term_months
+    elif payout_method == "Hàng quý":
+      num_quarters = term_months / 3.0
+      periodic_interest = total_interest / num_quarters
+    else:  # Cuối kỳ
+      periodic_interest = total_interest
 
-# Hiển thị kết quả
-st.markdown("---")
-st.subheader("📊 Kết quả tính toán")
+  else:  # Lãi kép
+    # Lãi kép tính dựa trên kỳ ghép lãi (hàng tháng hoặc hàng quý)
+    if payout_method == "Hàng tháng":
+      r_period = r_annual / 12.0
+      n_periods = term_months
+      total_amount = principal * ((1 + r_period) ** n_periods)
+      total_interest = total_amount - principal
+      periodic_interest = (
+          total_interest / n_periods if n_periods > 0 else 0
+      )  # Hoặc lãi tháng thực tế
 
-col1, col2, col3 = st.columns(3)
+    elif payout_method == "Hàng quý":
+      r_period = r_annual / 4.0
+      n_periods = term_months / 3.0
+      total_amount = principal * ((1 + r_period) ** n_periods)
+      total_interest = total_amount - principal
+      periodic_interest = total_interest / n_periods if n_periods > 0 else 0
 
-with col1:
-  if payout_method != "Cuối kỳ":
+    else:  # Cuối kỳ (mặc định ghép lãi hàng tháng nếu không rút định kỳ)
+      r_period = r_annual / 12.0
+      n_periods = term_months
+      total_amount = principal * ((1 + r_period) ** n_periods)
+      total_interest = total_amount - principal
+      periodic_interest = total_interest
+
+  # Hiển thị kết quả
+  st.markdown("---")
+  st.subheader("📊 Kết quả tính toán chi tiết")
+
+  col1, col2, col3 = st.columns(3)
+
+  with col1:
+    if payout_method != "Cuối kỳ":
+      st.metric(
+          label=f"Tiền lãi định kỳ ({payout_method.lower()})",
+          value=f"{periodic_interest:,.0f} VNĐ",
+      )
+    else:
+      st.metric(
+          label="Tiền lãi định kỳ", value="Nhận cuối kỳ (Không chia nhỏ)"
+      )
+
+  with col2:
+    st.metric(label="Tổng tiền lãi nhận được", value=f"{total_interest:,.0f} VNĐ")
+
+  with col3:
     st.metric(
-        label=f"Tiền lãi ({payout_method.lower()})",
-        value=f"{periodic_interest:,.0f} VNĐ",
-    )
-  else:
-    st.metric(
-        label="Tiền lãi định kỳ", value="Nhận cuối kỳ (Không chia nhỏ)"
+        label="Tổng số tiền (Gốc + Lãi)", value=f"{total_amount:,.0f} VNĐ"
     )
 
-with col2:
-  st.metric(label="Tổng tiền lãi", value=f"{total_interest:,.0f} VNĐ")
-
-with col3:
-  st.metric(label="Tổng số tiền (Gốc + Lãi)", value=f"{total_amount:,.0f} VNĐ")
-
-# Bảng tóm tắt thông tin
-st.markdown("---")
-st.markdown("### 📋 Tóm tắt thông tin gửi tiết kiệm")
-st.info(f"""
-- **Số tiền gửi ban đầu:** {principal:,.0f} VNĐ
-- **Kỳ hạn:** {term_months} tháng
-- **Lãi suất:** {annual_rate}% / năm
-- **Hình thức tính:** {interest_type}
-- **Hình thức nhận lãi:** {payout_method}
-""")
+  # Bảng tóm tắt thông tin đầu vào
+  st.markdown("---")
+  st.markdown("### 📋 Tóm tắt thông tin khoản gửi")
+  st.info(f"""
+    - **Số tiền gửi ban đầu:** {principal:,.0f} VNĐ
+    - **Kỳ hạn gửi:** {term_months} tháng
+    - **Lãi suất áp dụng:** {annual_rate}% / năm
+    - **Hình thức tính lãi:** {interest_type}
+    - **Hình thức nhận lãi:** {payout_method}
+    """)
