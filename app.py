@@ -10,7 +10,7 @@ st.set_page_config(
     layout="centered"
 )
 
-st.title("💰 Máy tính lãi tiền gửi tiết kiệm")
+st.title("CÔNG CỤ TÍNH TIỀN GỬI TIẾT KIỆM_NGUYỄN THỊ ANH THƯ")
 st.caption("Tính toán tiền lãi theo kỳ hạn, lãi suất và hình thức nhận lãi.")
 
 
